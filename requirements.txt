@@ -1,0 +1,14 @@
+
+fastapi
+uvicorn
+streamlit
+yfinance
+beautifulsoup4
+google-generativeai
+
+faiss-cpu
+langchain
+tiktoken
+whisper
+pyttsx3
+
