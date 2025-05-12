@@ -12,3 +12,9 @@ tiktoken
 whisper
 pyttsx3
 
+
+streamlit-webrtc
+requests
+speechrecognition
+av
+pyaudio
