@@ -1,0 +1,12 @@
+FROM python:3.10
+
+WORKDIR /app
+
+# Install necessary dependencies
+COPY ./requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY ./streamlit_app /app/streamlit_app
+
+# Run Streamlit app
+CMD ["streamlit", "run", "streamlit_app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

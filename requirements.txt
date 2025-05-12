@@ -18,3 +18,5 @@ requests
 speechrecognition
 av
 pyaudio
+gtts
+

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .  # Root directory, where docker-compose.yml is
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"  # Exposing the backend port
+    volumes:
+      - ./streamlit_app:/app/streamlit_app  # Mount streamlit app code
+      - ./orchestrator:/app/orchestrator     # Mount orchestrator code
+    networks:
+      - finance-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "8501:8501"  # Port for Streamlit
+    networks:
+      - finance-network
+    depends_on:
+      - backend
+
+networks:
+  finance-network:
+    driver: bridge

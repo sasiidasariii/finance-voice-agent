@@ -1,34 +1,74 @@
 import streamlit as st
 import requests
-import speech_recognition as sr
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import queue
 import av
 import tempfile
+from gtts import gTTS
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 
+st.set_page_config(page_title="Finance Assistant", layout="centered")
 st.title("🎙️ Finance Voice/Text Assistant")
 
-# Option to choose input mode
+# --- Input Mode Selection ---
 input_mode = st.radio("Select input method:", ["🎤 Speak", "⌨️ Type"])
 
-# Function to send query to backend
-def send_query(text):
-    response = requests.post("http://localhost:8000/text-query", json={"query": text})
-    if response.ok:
-        st.success("Response:")
-        st.write(response.json()["text"])
-    else:
-        st.error("Failed to process the query.")
+# --- Backend URL (use 'backend' in Docker Compose) ---
+BACKEND_URL = "http://backend:8000"
 
-# Text input mode
+# --- TTS Output ---
+def speak_response(text):
+    tts = gTTS(text=text, lang='en')
+    tts_file = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    tts.save(tts_file.name)
+    st.audio(tts_file.name, format="audio/mp3")
+
+# --- Send Text Query ---
+def send_text_query(text):
+    with st.spinner("Processing your text query..."):
+        try:
+            response = requests.post(f"{BACKEND_URL}/text-query", json={"query": text})
+            if response.ok:
+                answer = response.json()["text"]
+                st.success("Response:")
+                st.write(answer)
+                speak_response(answer)
+            else:
+                st.error("❌ Backend failed to process the query.")
+        except Exception as e:
+            st.error(f"❌ Connection error: {e}")
+
+# --- Send Voice Query ---
+def send_voice_query(audio_bytes):
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        f.write(audio_bytes)
+        wav_path = f.name
+
+    with open(wav_path, "rb") as f:
+        files = {"audio": f}
+        with st.spinner("Processing your voice query..."):
+            try:
+                response = requests.post(f"{BACKEND_URL}/voice-query", files=files)
+                if response.ok:
+                    answer = response.json()["text"]
+                    st.success("Response:")
+                    st.write(answer)
+                    speak_response(answer)
+                else:
+                    st.error("❌ Backend failed to process voice query.")
+            except Exception as e:
+                st.error(f"❌ Connection error: {e}")
+
+# --- Text Input Mode ---
 if input_mode == "⌨️ Type":
     user_input = st.text_input("Enter your financial question:")
     if st.button("Submit"):
-        send_query(user_input)
+        if user_input.strip():
+            send_text_query(user_input)
+        else:
+            st.warning("⚠️ Please enter a valid query.")
 
-# Voice input mode
+# --- Voice Input Mode ---
 elif input_mode == "🎤 Speak":
-
     class AudioProcessor(AudioProcessorBase):
         def __init__(self) -> None:
             self.buffer = queue.Queue()
@@ -49,16 +89,7 @@ elif input_mode == "🎤 Speak":
     if ctx.audio_processor:
         if st.button("Submit Voice Query"):
             audio_data = b"".join(list(ctx.audio_processor.buffer.queue))
-
-            # Save to temp file
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                f.write(audio_data)
-                wav_path = f.name
-
-            files = {"audio": open(wav_path, "rb")}
-            response = requests.post("http://localhost:8000/voice-query", files=files)
-            if response.ok:
-                st.success("Response:")
-                st.write(response.json()["text"])
+            if not audio_data:
+                st.warning("⚠️ No audio captured. Please try again.")
             else:
-                st.error("Failed to process voice query.")
+                send_voice_query(audio_data)
