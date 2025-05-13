@@ -1,21 +1,21 @@
-streamlit
+# Minimal core
 fastapi
 uvicorn
-yfinance
-beautifulsoup4
+streamlit
 requests
 faiss-cpu
-sentence-transformers
-whisper
-pyttsx3
-google-generativeai
-python-dotenv
-streamlit-webrtc
-scipy
+sentence-transformers==2.2.2
+
+# Audio (lighter)
 SpeechRecognition
-sounddevice
 soundfile
-streamlit-webrtc
 pydub
 streamlit-audiorec
+
+# Optional lightweight extras
+pyttsx3
 textblob
+scipy
+yfinance
+beautifulsoup4
+python-dotenv
