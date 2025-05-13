@@ -13,4 +13,7 @@ python-dotenv
 streamlit-webrtc
 scipy
 SpeechRecognition
-pyaudio
+sounddevice
+soundfile
+streamlit-webrtc
+pydub
