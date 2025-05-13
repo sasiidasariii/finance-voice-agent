@@ -10,14 +10,7 @@ whisper
 pyttsx3
 google-generativeai
 python-dotenv
-streamlit
 streamlit-webrtc
-whisper
-pyttsx3
 scipy
-requests
 SpeechRecognition
 pyaudio
-SpeechRecognition
-pyttsx3
-pyaudio 
