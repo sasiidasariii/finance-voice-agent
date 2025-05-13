@@ -1,32 +1,75 @@
-from fastapi import FastAPI, UploadFile
-from agents.voice_agent.voice_agent import transcribe_audio, speak_text
-from agents.api_agent.api_agent import get_stock_data
-from agents.language_agent.language_agent import generate_market_brief
-import tempfile
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from agents import api_agent, scraping_agent, retriever_agent, analysis_agent, language_agent
+import logging
 
+# Initialize FastAPI app
 app = FastAPI()
 
-@app.post("/voice-query")
-async def handle_query(audio: UploadFile):
-    # Save uploaded audio file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio.write(await audio.read())
-        temp_audio_path = temp_audio.name
+# Middleware for CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for simplicity in development
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
 
-    # Convert voice to text
-    question = transcribe_audio(temp_audio_path)
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    # Get stock data (example: TSMC, Samsung)
-    tsmc = get_stock_data("TSM")
-    samsung = get_stock_data("005930.KS")
-    
-    context = f"TSMC closing price: {tsmc['close']}, change: {tsmc['change']}%.\n" \
-              f"Samsung closing price: {samsung['close']}, change: {samsung['change']}%."
+@app.get("/")
+def root():
+    return {"message": "Finance Voice Agent is running. Use /brief?query=your-question"}
 
-    # Generate response using Gemini
-    summary = generate_market_brief(context)
+@app.get("/brief")
+def morning_brief(query: str = "What’s our risk exposure in Asia tech stocks today?"):
+    try:
+        logger.info(f"🔍 Query received: {query}")
 
-    # Speak the result
-    speak_text(summary)
+        # Fetch market data
+        try:
+            market_data = api_agent.fetch_market_data()
+            logger.info(f"Fetched market data: {market_data}")
+        except Exception as e:
+            logger.error(f"Error fetching market data: {e}")
+            return {"error": f"Market data fetch failed: {str(e)}"}
 
-    return {"text": summary}
+        # Scrape earnings news
+        try:
+            earnings = scraping_agent.scrape_earnings_news()
+            logger.info(f"Earnings news scraped: {earnings}")
+        except Exception as e:
+            logger.error(f"Error scraping earnings news: {e}")
+            return {"error": f"Earnings scraping failed: {str(e)}"}
+
+        # Retrieve relevant articles
+        try:
+            retrieval = retriever_agent.retrieve(query)
+            logger.info(f"Retrieval results: {retrieval}")
+        except Exception as e:
+            logger.error(f"Error in retrieval: {e}")
+            return {"error": f"Retrieval failed: {str(e)}"}
+
+        # Perform risk analysis
+        try:
+            analysis = analysis_agent.analyze(market_data)
+            logger.info(f"Risk analysis result: {analysis}")
+        except Exception as e:
+            logger.error(f"Error in analysis: {e}")
+            return {"error": f"Analysis failed: {str(e)}"}
+
+        # Combine all information for summary generation
+        try:
+            facts = f"{retrieval} | {str(analysis)} | {earnings}"
+            summary = language_agent.generate_summary(facts)
+            logger.info(f"Generated summary: {summary}")
+        except Exception as e:
+            logger.error(f"Error in generating summary: {e}")
+            return {"error": f"Summary generation failed: {str(e)}"}
+
+        return {"summary": summary}
+
+    except Exception as e:
+        logger.error(f"❌ General error: {e}")
+        return {"error": f"An unexpected error occurred: {str(e)}"}
