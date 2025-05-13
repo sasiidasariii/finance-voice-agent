@@ -17,5 +17,4 @@ sounddevice
 soundfile
 streamlit-webrtc
 pydub
-PyAudio
 sounddevice
