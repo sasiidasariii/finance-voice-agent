@@ -57,7 +57,9 @@ def get_browser_audio_input():
 def fetch_market_brief(query):
     """Fetch market brief from backend."""
     try:
-        response = requests.get(f"http://localhost:8000/brief?query={query}")
+        FASTAPI_URL = "https://finance-voice-agent.onrender.com" 
+        response = requests.get(f"{FASTAPI_URL}/brief?query={query}")
+
         data = response.json()
         brief = data.get("brief")
         if brief:
