@@ -10,17 +10,21 @@ import os
 st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
+# Global mute toggle
+mute_speech = st.checkbox("🔇 Mute Voice Output", value=False)
+
 # TTS function
 def speak(text):
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
+    if not mute_speech:
+        engine = pyttsx3.init()
+        engine.say(text)
+        engine.runAndWait()
 
 # Voice input using sounddevice instead of pyaudio
 def get_voice_input():
     recognizer = sr.Recognizer()
     fs = 16000  # Sample rate
-    seconds = 5  # Duration of recording
+    seconds = 15  # Duration of recording
 
     st.info("🎤 Listening... Please speak your query.")
     try:
