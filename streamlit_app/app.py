@@ -28,11 +28,13 @@ def get_voice_input():
 
     st.info("🎤 Listening... Please speak your query.")
     try:
+        # Record audio using sounddevice
         recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1, dtype='int16')
-        sd.wait()
+        sd.wait()  # Wait for recording to finish
         wav_path = "temp_voice.wav"
         write(wav_path, fs, recording)
 
+        # Use the audio file with speech_recognition
         with sr.AudioFile(wav_path) as source:
             audio = recognizer.record(source)
             st.success("✅ Voice captured. Transcribing...")
