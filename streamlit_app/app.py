@@ -7,7 +7,7 @@ import tempfile
 import speech_recognition as sr
 
 # ------------------- Page Config ------------------- #
-st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
+st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
 mute_speech = st.checkbox("🔇 Mute Voice Output", value=False)
