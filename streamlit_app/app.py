@@ -4,21 +4,16 @@ import speech_recognition as sr
 import pyttsx3
 import sounddevice as sd
 from scipy.io.wavfile import write
-import numpy as np
 import os
 
 st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
-# Global mute toggle
-mute_speech = st.checkbox("🔇 Mute Voice Output", value=False)
-
 # TTS function
 def speak(text):
-    if not mute_speech:
-        engine = pyttsx3.init()
-        engine.say(text)
-        engine.runAndWait()
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
 
 # Voice input using sounddevice instead of pyaudio
 def get_voice_input():
@@ -28,13 +23,11 @@ def get_voice_input():
 
     st.info("🎤 Listening... Please speak your query.")
     try:
-        # Record audio using sounddevice
         recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1, dtype='int16')
-        sd.wait()  # Wait for recording to finish
+        sd.wait()
         wav_path = "temp_voice.wav"
         write(wav_path, fs, recording)
 
-        # Use the audio file with speech_recognition
         with sr.AudioFile(wav_path) as source:
             audio = recognizer.record(source)
             st.success("✅ Voice captured. Transcribing...")
