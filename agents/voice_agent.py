@@ -1,50 +1,33 @@
+# agents/voice_agent.py
+
 import whisper
-import logging
-import pyttsx3  # For Text-to-Speech conversion
+import pyttsx3
+import os
 
-# Initialize the Whisper model
-model = whisper.load_model("base")
+# Load the model once (only when this module is used)
+_model = None
 
-# Initialize Text-to-Speech engine (TTS)
-tts_engine = pyttsx3.init()
+def load_whisper_model():
+    global _model
+    if _model is None:
+        try:
+            _model = whisper.load_model("base")
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Whisper model: {e}")
+    return _model
 
-# Set up logging for debugging purposes
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def transcribe(audio_file_path):
-    """
-    Transcribes audio to text using Whisper model.
-    """
+def speech_to_text(audio_path: str) -> str:
+    model = load_whisper_model()
     try:
-        logger.info(f"Transcribing audio from: {audio_file_path}")
-        result = model.transcribe(audio_file_path)
-        transcribed_text = result['text']
-        logger.info(f"Transcription result: {transcribed_text}")
-        return transcribed_text
+        result = model.transcribe(audio_path)
+        return result['text']
     except Exception as e:
-        logger.error(f"Error during transcription: {e}")
-        return "Error: Failed to transcribe audio."
+        return f"[ERROR] Could not transcribe: {e}"
 
-def speak_text(text):
-    """
-    Converts text to speech using pyttsx3 and plays the result.
-    """
+def text_to_speech(text: str):
     try:
-        logger.info(f"Converting text to speech: {text}")
-        tts_engine.say(text)
-        tts_engine.runAndWait()
+        engine = pyttsx3.init()
+        engine.say(text)
+        engine.runAndWait()
     except Exception as e:
-        logger.error(f"Error during text-to-speech conversion: {e}")
-
-# Example usage:
-if __name__ == "__main__":
-    # Example: Transcribe an audio file and then speak the response
-    audio_path = "path_to_audio_file.wav"  # Provide the correct path to the audio file
-    transcribed_text = transcribe(audio_path)
-    
-    # You would pass this transcribed text to another agent for processing
-    logger.info(f"Transcribed Text: {transcribed_text}")
-    
-    # Convert the response back to speech
-    speak_text(f"Your transcribed text is: {transcribed_text}")
+        print(f"[ERROR] Text-to-speech failed: {e}")

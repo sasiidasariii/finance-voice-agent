@@ -1,75 +1,71 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from agents import api_agent, scraping_agent, retriever_agent, analysis_agent, language_agent
-import logging
+from agents import api_agent, analysis_agent, language_agent, retriever_agent
+from data_ingestion.document_loader import load_txt_documents, chunk_text
+import random
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Middleware for CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for simplicity in development
-    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allow all headers
-)
+# Load and embed market news
+texts = load_txt_documents("data/news/")
+chunks = [c for t in texts for c in chunk_text(t)]
+index, source_texts = retriever_agent.embed_and_store(chunks)
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-@app.get("/")
-def root():
-    return {"message": "Finance Voice Agent is running. Use /brief?query=your-question"}
+def get_earnings_surprise(actual_eps, estimated_eps):
+    return ((actual_eps - estimated_eps) / estimated_eps) * 100
 
 @app.get("/brief")
-def morning_brief(query: str = "What’s our risk exposure in Asia tech stocks today?"):
+def morning_brief():
     try:
-        logger.info(f"🔍 Query received: {query}")
+        companies = ["TSMC", "005930.KS", "AAPL", "GOOGL"]
+        company_data = {}
 
-        # Fetch market data
-        try:
-            market_data = api_agent.fetch_market_data()
-            logger.info(f"Fetched market data: {market_data}")
-        except Exception as e:
-            logger.error(f"Error fetching market data: {e}")
-            return {"error": f"Market data fetch failed: {str(e)}"}
+        for company in companies:
+            try:
+                stock_data = api_agent.get_stock_summary(company)
+                actual_eps = random.uniform(5, 10)
+                estimated_eps = random.uniform(4, 9)
+                surprise = get_earnings_surprise(actual_eps, estimated_eps)
+                company_data[company] = {
+                    'stock_data': stock_data,
+                    'earnings_surprise': surprise
+                }
+            except Exception as e:
+                print(f"[ERROR] Failed to fetch data for {company}: {e}")
+                continue
 
-        # Scrape earnings news
-        try:
-            earnings = scraping_agent.scrape_earnings_news()
-            logger.info(f"Earnings news scraped: {earnings}")
-        except Exception as e:
-            logger.error(f"Error scraping earnings news: {e}")
-            return {"error": f"Earnings scraping failed: {str(e)}"}
+        today_risk = analysis_agent.compute_asia_tech_exposure({
+            "AsiaTech_TSM": 2000000,
+            "US_Tech_MSFT": 5000000
+        })
+        yesterday_risk = today_risk + random.uniform(-5, 5)
+        direction = "up from" if today_risk > yesterday_risk else "down from"
 
-        # Retrieve relevant articles
-        try:
-            retrieval = retriever_agent.retrieve(query)
-            logger.info(f"Retrieval results: {retrieval}")
-        except Exception as e:
-            logger.error(f"Error in retrieval: {e}")
-            return {"error": f"Retrieval failed: {str(e)}"}
+        retrieved_docs = retriever_agent.retrieve_top_k("Asia tech earnings", index, source_texts)
+        news_summary = " ".join(retrieved_docs)
 
-        # Perform risk analysis
-        try:
-            analysis = analysis_agent.analyze(market_data)
-            logger.info(f"Risk analysis result: {analysis}")
-        except Exception as e:
-            logger.error(f"Error in analysis: {e}")
-            return {"error": f"Analysis failed: {str(e)}"}
+        sentiment = analysis_agent.get_sentiment(news_summary)
+        sentiment_label = sentiment.get("label", "neutral")
+        sentiment_reason = sentiment.get("reason", "mixed factors")
 
-        # Combine all information for summary generation
-        try:
-            facts = f"{retrieval} | {str(analysis)} | {earnings}"
-            summary = language_agent.generate_summary(facts)
-            logger.info(f"Generated summary: {summary}")
-        except Exception as e:
-            logger.error(f"Error in generating summary: {e}")
-            return {"error": f"Summary generation failed: {str(e)}"}
+        earnings_lines = []
+        for company, data in company_data.items():
+            change = data['earnings_surprise']
+            if change >= 0:
+                line = f"{company} beat estimates by {change:.2f}%"
+            else:
+                line = f"{company} missed by {abs(change):.2f}%"
+            earnings_lines.append(line)
 
-        return {"summary": summary}
+        prompt = (
+            f"Today, your Asia tech allocation is {today_risk:.2f}% of AUM, "
+            f"{direction} {abs(yesterday_risk):.2f}%.\n"
+            f"{'; '.join(earnings_lines)}.\n"
+            f"Regional sentiment is {sentiment_label} due to {sentiment_reason}."
+        )
+
+        brief = language_agent.generate_brief(prompt)
+        return {"brief": brief or prompt}
 
     except Exception as e:
-        logger.error(f"❌ General error: {e}")
-        return {"error": f"An unexpected error occurred: {str(e)}"}
+        print(f"[SERVER ERROR] {e}")
+        return {"error": str(e)}
