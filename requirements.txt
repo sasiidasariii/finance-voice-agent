@@ -16,3 +16,6 @@ whisper
 pyttsx3
 scipy
 requests
+SpeechRecognition
+pyaudio
+pipwin
