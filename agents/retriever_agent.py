@@ -4,7 +4,7 @@ import numpy as np
 import tempfile
 
 # Load a smaller model to reduce memory consumption
-model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+model = SentenceTransformer("paraphrase-albert-small-v2")
 
 # ------------------- Embed and Store ------------------- #
 def embed_and_store(texts):
