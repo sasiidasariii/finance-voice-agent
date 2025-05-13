@@ -59,7 +59,11 @@ def fetch_market_brief(query):
     try:
         FASTAPI_URL = "https://finance-voice-agent.onrender.com" 
         response = requests.get(f"{FASTAPI_URL}/brief?query={query}")
+        
+        # Log the raw response to inspect its contents
+        st.write(f"Raw response: {response.text}")
 
+        # Check if the response is valid JSON
         data = response.json()
         brief = data.get("brief")
         if brief:
@@ -70,6 +74,7 @@ def fetch_market_brief(query):
             st.error("⚠️ No brief returned.")
     except Exception as e:
         st.error(f"❌ Error: {e}")
+
 
 # ------------------- UI: Input Method ------------------- #
 input_method = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
