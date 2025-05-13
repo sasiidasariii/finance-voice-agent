@@ -6,6 +6,11 @@ import tempfile
 import st_audiorec
 import speech_recognition as sr
 
+import os
+# Set a custom directory for Streamlit config files
+os.environ["STREAMLIT_CONFIG_DIR"] = "/tmp/.streamlit"
+
+
 # ------------------- Page Config -------------------
 
 st.set_page_config(page_title="🎙️ Finance Assistant")
