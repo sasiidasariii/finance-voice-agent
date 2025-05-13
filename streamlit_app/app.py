@@ -2,6 +2,10 @@ import streamlit as st
 import requests
 import speech_recognition as sr
 import pyttsx3
+import sounddevice as sd
+from scipy.io.wavfile import write
+import numpy as np
+import os
 
 st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
@@ -12,25 +16,36 @@ def speak(text):
     engine.say(text)
     engine.runAndWait()
 
-# Function to get voice input and transcribe
+# Voice input using sounddevice instead of pyaudio
 def get_voice_input():
     recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 Listening... Please speak your query.")
-        try:
-            audio = recognizer.listen(source, timeout=5)
+    fs = 16000  # Sample rate
+    seconds = 5  # Duration of recording
+
+    st.info("🎤 Listening... Please speak your query.")
+    try:
+        recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1, dtype='int16')
+        sd.wait()
+        wav_path = "temp_voice.wav"
+        write(wav_path, fs, recording)
+
+        with sr.AudioFile(wav_path) as source:
+            audio = recognizer.record(source)
             st.success("✅ Voice captured. Transcribing...")
             text = recognizer.recognize_google(audio)
-            return text
-        except sr.UnknownValueError:
-            st.error("⚠️ Could not understand audio.")
-            return None
-        except sr.RequestError:
-            st.error("⚠️ API unavailable or quota exceeded.")
-            return None
-        except Exception as e:
-            st.error(f"❌ Error: {e}")
-            return None
+
+        os.remove(wav_path)
+        return text
+
+    except sr.UnknownValueError:
+        st.error("⚠️ Could not understand audio.")
+        return None
+    except sr.RequestError:
+        st.error("⚠️ API unavailable or quota exceeded.")
+        return None
+    except Exception as e:
+        st.error(f"❌ Could not transcribe audio: {e}")
+        return None
 
 # Choose input method
 input_method = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Upload Voice"])
