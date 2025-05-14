@@ -5,7 +5,6 @@ import tempfile
 import st_audiorec
 import speech_recognition as sr
 from gtts import gTTS
-import threading
 
 # Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
@@ -65,18 +64,6 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
-# ------------------- Audio Processing -------------------
-def process_audio(wav_audio):
-    with st.spinner("🔍 Transcribing your voice..."):
-        transcribed = transcribe_audio(wav_audio)
-        if transcribed:
-            st.session_state.transcribed_text = transcribed
-            st.success(f"📝 You said: *{transcribed}*")
-            with st.spinner("📈 Fetching market brief..."):
-                fetch_market_brief(transcribed)
-        else:
-            st.warning("⚠️ Could not transcribe.")
-
 # ------------------- Input Mode -------------------
 input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
@@ -88,19 +75,15 @@ if input_mode == "⌨️ Text":
 
 else:
     st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
+    
+    # Capture audio when 'Stop' is pressed
     wav_audio = st_audiorec.st_audiorec()
 
-    # Trigger audio processing in a separate thread immediately after recording
-    if wav_audio and not st.session_state.audio_ready:
-        st.session_state.audio_ready = True
+    if wav_audio and not st.session_state.processing:
         st.session_state.processing = True
         st.info("🔄 Audio recorded. Processing...")
 
-        # Process audio asynchronously using threading to avoid UI freeze
-        threading.Thread(target=process_audio, args=(wav_audio,)).start()
-
-    elif st.session_state.processing:
-        st.info("🔄 Processing audio... Please wait.")
+        # Transcribe the audio and process
         with st.spinner("🔍 Transcribing your voice..."):
             transcribed = transcribe_audio(wav_audio)
             
@@ -113,5 +96,4 @@ else:
                 st.warning("⚠️ Could not transcribe.")
         
         # Reset session state after processing
-        st.session_state.audio_ready = False
         st.session_state.processing = False
