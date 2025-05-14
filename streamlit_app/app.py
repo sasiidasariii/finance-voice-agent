@@ -3,25 +3,21 @@ import requests
 import os
 import tempfile
 import st_audiorec
-import whisper
+import speech_recognition as sr
 from gtts import gTTS
 
 # Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
-# Session State Initialization
-if "audio_ready" not in st.session_state:
-    st.session_state.audio_ready = False
+# Init session state
 if "transcribed_text" not in st.session_state:
     st.session_state.transcribed_text = ""
-if "processing" not in st.session_state:
-    st.session_state.processing = False
 
 # Mute option
 st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
 
-# ------------------- TTS ------------------- #
+# ------------------- TTS -------------------
 def speak(text):
     if not st.session_state.get("mute", False):
         tts = gTTS(text=text, lang='en')
@@ -30,30 +26,26 @@ def speak(text):
             with open(tmpfile.name, "rb") as f:
                 st.audio(f.read(), format="audio/mp3")
 
-# ------------------- Load Whisper Model ------------------- #
-@st.cache_resource
-def load_whisper_model():
-    return whisper.load_model("tiny")  # Use "tiny" for speed
-
-whisper_model = load_whisper_model()
-
-# ------------------- Transcription ------------------- #
+# ------------------- Transcription -------------------
 def transcribe_audio(wav_audio_data):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
         tmpfile.write(wav_audio_data)
         audio_path = tmpfile.name
 
+    recognizer = sr.Recognizer()
     try:
-        with st.spinner("🔍 Transcribing your voice..."):
-            result = whisper_model.transcribe(audio_path)
-            return result["text"]
-    except Exception as e:
-        st.error(f"❌ Transcription error: {e}")
+        with sr.AudioFile(audio_path) as source:
+            audio = recognizer.record(source)
+        return recognizer.recognize_google(audio)
+    except sr.UnknownValueError:
+        st.warning("⚠️ Could not understand your voice.")
+    except sr.RequestError:
+        st.error("❌ Speech-to-text API error.")
     finally:
         os.remove(audio_path)
     return None
 
-# ------------------- Market Brief ------------------- #
+# ------------------- Market Brief -------------------
 def fetch_market_brief(query):
     try:
         url = f"https://8f72-2409-40f0-1f-32b2-ec80-3655-f9b3-d72b.ngrok-free.app/brief?query={query}"
@@ -68,7 +60,7 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
-# ------------------- Input Mode ------------------- #
+# ------------------- Input Mode -------------------
 input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
 if input_mode == "⌨️ Text":
@@ -78,24 +70,17 @@ if input_mode == "⌨️ Text":
             fetch_market_brief(query)
 
 else:
-    st.info("🎧 Click 'Start recording', speak, then click 'Stop' to transcribe.")
+    st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
     wav_audio = st_audiorec.st_audiorec()
 
-    if wav_audio and not st.session_state.audio_ready:
-        st.session_state.audio_ready = True
-        st.info("🎤 Audio received! Transcribing...")
-        st.experimental_rerun()
-
-    if st.session_state.audio_ready and not st.session_state.processing:
-        st.session_state.processing = True
-        st.session_state.transcribed_text = transcribe_audio(wav_audio)
-        st.experimental_rerun()
-
-    if st.session_state.transcribed_text:
-        st.success(f"📝 You said: *{st.session_state.transcribed_text}*")
-        with st.spinner("📈 Fetching market brief..."):
-            fetch_market_brief(st.session_state.transcribed_text)
-        # Reset for next round
-        st.session_state.audio_ready = False
-        st.session_state.processing = False
-        st.session_state.transcribed_text = ""
+    if wav_audio:
+        st.audio(wav_audio, format="audio/wav")
+        with st.spinner("🔍 Transcribing your voice..."):
+            transcribed = transcribe_audio(wav_audio)
+            if transcribed:
+                st.success(f"📝 You said: *{transcribed}*")
+                st.session_state.transcribed_text = transcribed
+                with st.spinner("📈 Fetching market brief..."):
+                    fetch_market_brief(transcribed)
+            else:
+                st.warning("⚠️ Could not transcribe.")
