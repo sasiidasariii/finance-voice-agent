@@ -2,6 +2,8 @@
 
 A production-ready, voice-powered financial assistant that delivers spoken market briefs using multi-agent orchestration, Retrieval-Augmented Generation (RAG), and real-time data analysis.
 
+**Video Demo Link : https://drive.google.com/file/d/1sPu0vMsnTmpZkiMrVLUnbKBz7p2qjj9c/view?usp=sharing
+
 ---
 
 ## 🚀 Features
