@@ -3,8 +3,11 @@ import streamlit as st
 import requests
 import speech_recognition as sr
 
-# Detect if running in Streamlit Cloud by checking for the presence of $STAGE
-IS_CLOUD = os.environ.get("STAGE") is not None  # This is often used in Streamlit Cloud
+# Debug: Log environment to check if the app is detecting Cloud
+st.write("IS_CLOUD: ", os.environ.get("STAGE"))
+
+# Detect if running in Streamlit Cloud by checking for the presence of $STAGE environment variable
+IS_CLOUD = os.environ.get("STAGE") is not None
 
 # Only import sounddevice & scipy if running locally
 if not IS_CLOUD:
