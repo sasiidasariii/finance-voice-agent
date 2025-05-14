@@ -101,3 +101,17 @@ else:
 
     elif st.session_state.processing:
         st.info("🔄 Processing audio... Please wait.")
+        with st.spinner("🔍 Transcribing your voice..."):
+            transcribed = transcribe_audio(wav_audio)
+            
+            if transcribed:
+                st.session_state.transcribed_text = transcribed
+                st.success(f"📝 You said: *{transcribed}*")
+                with st.spinner("📈 Fetching market brief..."):
+                    fetch_market_brief(transcribed)
+            else:
+                st.warning("⚠️ Could not transcribe.")
+        
+        # Reset session state after processing
+        st.session_state.audio_ready = False
+        st.session_state.processing = False
