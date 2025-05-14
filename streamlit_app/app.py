@@ -5,7 +5,6 @@ import tempfile
 import st_audiorec
 import speech_recognition as sr
 from gtts import gTTS
-import threading
 
 # Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
@@ -14,8 +13,6 @@ st.title("🎙️ Morning Market Brief Assistant")
 # Init session state
 if "transcribed_text" not in st.session_state:
     st.session_state.transcribed_text = ""
-if "audio_ready" not in st.session_state:
-    st.session_state.audio_ready = False
 
 # Mute option
 st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
@@ -63,18 +60,6 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
-# ------------------- Process Audio in Background -------------------
-def process_audio(wav_audio):
-    # Transcribe the audio in a background thread
-    transcribed_text = transcribe_audio(wav_audio)
-    if transcribed_text:
-        st.session_state.transcribed_text = transcribed_text
-        st.success(f"📝 You said: *{transcribed_text}*")
-        with st.spinner("📈 Fetching market brief..."):
-            fetch_market_brief(transcribed_text)
-    else:
-        st.warning("⚠️ Could not transcribe.")
-
 # ------------------- Input Mode -------------------
 input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
@@ -88,11 +73,17 @@ else:
     st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
     wav_audio = st_audiorec.st_audiorec()
 
-    if wav_audio and not st.session_state.audio_ready:
-        st.session_state.audio_ready = True
+    # After recording finishes, automatically transcribe and process
+    if wav_audio:
+        st.audio(wav_audio, format="audio/wav")
         with st.spinner("🔍 Transcribing your voice..."):
-            # Start transcription in a separate thread to avoid blocking
-            threading.Thread(target=process_audio, args=(wav_audio,)).start()
-
-    if st.session_state.audio_ready:
-        st.info("🎧 Transcribing your speech... please wait.")
+            transcribed = transcribe_audio(wav_audio)
+            
+            if transcribed:
+                st.success(f"📝 You said: *{transcribed}*")
+                st.session_state.transcribed_text = transcribed
+                
+                with st.spinner("📈 Fetching market brief..."):
+                    fetch_market_brief(transcribed)
+            else:
+                st.warning("⚠️ Could not transcribe.")
