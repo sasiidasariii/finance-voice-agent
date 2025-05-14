@@ -4,7 +4,7 @@ import requests
 import speech_recognition as sr
 
 # Check for Streamlit Cloud deployment
-IS_CLOUD = os.getenv("STAGE") is not None
+IS_CLOUD = os.getenv("STREAMLIT_CLOUD") is not None
 
 # Move set_page_config to the top to avoid the error
 st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
