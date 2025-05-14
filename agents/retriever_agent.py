@@ -6,7 +6,7 @@ from functools import lru_cache
 # ------------------- Lazy Load Model ------------------- #
 @lru_cache(maxsize=1)
 def get_model():
-    return SentenceTransformer("paraphrase-albert-small-v2")
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 # ------------------- Embed and Store ------------------- #
 def embed_and_store(texts):

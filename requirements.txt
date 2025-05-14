@@ -19,3 +19,5 @@ scipy
 yfinance
 beautifulsoup4
 python-dotenv
+gTTS 
+pygame

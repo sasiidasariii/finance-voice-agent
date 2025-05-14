@@ -1,115 +1,90 @@
 import streamlit as st
 import requests
-import pyttsx3
-import os
-import tempfile
-import st_audiorec
 import speech_recognition as sr
-
+import sounddevice as sd
+from scipy.io.wavfile import write
 import os
-# Set a custom directory for Streamlit config files
-os.environ["STREAMLIT_CONFIG_DIR"] = "/tmp/.streamlit"
+from audio_controller import audio  # Uses gTTS and returns MP3 path
 
-
-# ------------------- Page Config -------------------
-
-st.set_page_config(page_title="🎙️ Finance Assistant")
+st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
-mute_speech = st.checkbox("🔇 Mute Voice Output", value=False)
+# Initialize session state
+if "brief" not in st.session_state:
+    st.session_state.brief = ""
+if "query" not in st.session_state:
+    st.session_state.query = ""
+if "audio_path" not in st.session_state:
+    st.session_state.audio_path = ""
 
-# ------------------- TTS -------------------
-
-def speak(text):
-    """Convert text to speech."""
-    if not mute_speech:
-        engine = pyttsx3.init()
-        engine.say(text)
-        engine.runAndWait()
-
-# ------------------- Audio Transcription -------------------
-
-def transcribe_audio(wav_audio_data):
-    """Save recorded audio and transcribe it using SpeechRecognition."""
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-        tmpfile.write(wav_audio_data)
-        tmpfile_path = tmpfile.name
-
+# Voice input using sounddevice
+def get_voice_input():
     recognizer = sr.Recognizer()
+    fs = 16000  # Sample rate
+    seconds = 15
+    st.info("🎤 Listening... Please speak your query.")
     try:
-        with sr.AudioFile(tmpfile_path) as source:
-            audio = recognizer.record(source)
-        text = recognizer.recognize_google(audio)
+        recording = sd.rec(int(seconds * fs), samplerate=fs, channels=1, dtype='int16')
+        sd.wait()
+        wav_path = "temp_voice.wav"
+        write(wav_path, fs, recording)
+
+        with sr.AudioFile(wav_path) as source:
+            audio_data = recognizer.record(source)
+            st.success("✅ Voice captured. Transcribing...")
+            text = recognizer.recognize_google(audio_data)
+
+        os.remove(wav_path)
         return text
+
     except sr.UnknownValueError:
         st.error("⚠️ Could not understand audio.")
     except sr.RequestError:
         st.error("⚠️ API unavailable or quota exceeded.")
     except Exception as e:
-        st.error(f"❌ Error during transcription: {e}")
-    finally:
-        os.remove(tmpfile_path)
-
+        st.error(f"❌ Transcription error: {e}")
     return None
 
-# ------------------- Audio Input -------------------
+# Input method
+input_method = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Record Voice"])
 
-def get_browser_audio_input():
-    """Capture and transcribe audio via browser."""
-    st.markdown("#### 🎤 Press the button to talk:")
-    wav_audio_data = st_audiorec.st_audiorec()
-
-    if wav_audio_data is not None:
-        st.audio(wav_audio_data, format='audio/wav')
-        st.info("🛠️ Transcribing your voice...")
-        return transcribe_audio(wav_audio_data)
-
-    return None
-
-# ------------------- Market Brief Request -------------------
-
-def fetch_market_brief(query):
-    """Fetch market brief from backend."""
-    try:
-        url = f"https://finance-voice-agent.onrender.com/brief?query={query}"
-        response = requests.get(url)
-
-        if response.status_code == 200:
-            try:
-                data = response.json()
-                brief = data.get("brief")
-                if brief:
-                    st.subheader("📄 Market Brief")
-                    st.write(brief)
-                    speak(brief)
-                else:
-                    st.error("⚠️ No brief returned.")
-            except Exception as json_err:
-                st.error(f"⚠️ Error parsing JSON: {json_err}")
-                st.text(f"Raw response:\n{response.text}")
-        else:
-            st.error(f"❌ API error: Status code {response.status_code}")
-            st.text(f"Response:\n{response.text}")
-
-    except Exception as e:
-        st.error(f"❌ Request error: {e}")
-
-# ------------------- UI: Input Method -------------------
-
-input_method = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
-
-# ----- Text Mode -----
+# Text input
 if input_method == "⌨️ Text":
-    query = st.text_input("Enter your market question:")
-    if st.button("🟢 Get Market Brief") and query:
-        with st.spinner("🔄 Fetching market brief..."):
-            fetch_market_brief(query)
+    st.session_state.query = st.text_input("Enter your market question", value=st.session_state.query)
+    if st.button("Get Market Brief (Text)") and st.session_state.query:
+        with st.spinner("🔄 Fetching brief..."):
+            try:
+                response = requests.get(f"http://localhost:8000/brief?query={st.session_state.query}")
+                response.raise_for_status()
+                data = response.json()
+                st.session_state.brief = data.get("brief", "")
+                st.session_state.audio_path = audio.generate_audio(st.session_state.brief)
+            except Exception as e:
+                st.error(f"❌ Error: {e}")
 
-# ----- Voice Mode -----
-elif input_method == "🎙️ Voice":
-    st.info("🎧 Click the start recording button below, speak clearly, then stop.")
-    transcribed_text = get_browser_audio_input()
-    if transcribed_text:
-        st.success(f"📝 You said: *{transcribed_text}*")
-        with st.spinner("🔄 Fetching market brief..."):
-            fetch_market_brief(transcribed_text)
+# Voice input
+elif input_method == "🎙️ Record Voice":
+    if st.button("🎤 Record and Transcribe"):
+        query = get_voice_input()
+        if query:
+            st.success(f"📝 Transcribed: {query}")
+            st.session_state.query = query
+            with st.spinner("🔄 Fetching market brief..."):
+                try:
+                    response = requests.get(f"http://localhost:8000/brief?query={query}")
+                    response.raise_for_status()
+                    data = response.json()
+                    st.session_state.brief = data.get("brief", "")
+                    st.session_state.audio_path = audio.generate_audio(st.session_state.brief)
+                except Exception as e:
+                    st.error(f"❌ Error: {e}")
+
+# Display brief and audio
+if st.session_state.brief:
+    st.subheader("📄 Market Brief")
+    st.write(st.session_state.brief)
+
+    if st.session_state.audio_path:
+        with open(st.session_state.audio_path, "rb") as f:
+            audio_bytes = f.read()
+        st.audio(audio_bytes, format="audio/mp3", start_time=0)
