@@ -6,9 +6,20 @@ import st_audiorec
 import speech_recognition as sr
 from gtts import gTTS
 
-# ------------------- Page Config -------------------
+# Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
+
+# Init session state
+if "audio_ready" not in st.session_state:
+    st.session_state.audio_ready = False
+if "transcribed_text" not in st.session_state:
+    st.session_state.transcribed_text = ""
+if "processing" not in st.session_state:
+    st.session_state.processing = False
+
+# Mute option
+st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
 
 # ------------------- TTS -------------------
 def speak(text):
@@ -38,7 +49,7 @@ def transcribe_audio(wav_audio_data):
         os.remove(audio_path)
     return None
 
-# ------------------- Backend Brief -------------------
+# ------------------- Market Brief -------------------
 def fetch_market_brief(query):
     try:
         url = f"https://8f72-2409-40f0-1f-32b2-ec80-3655-f9b3-d72b.ngrok-free.app/brief?query={query}"
@@ -53,30 +64,35 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
-# ------------------- UI -------------------
-st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
+# ------------------- Input Mode -------------------
 input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
-# ------------------- Text Mode -------------------
 if input_mode == "⌨️ Text":
     query = st.text_input("Enter your market question:")
     if st.button("🟢 Get Market Brief") and query:
-        with st.spinner("Fetching market brief..."):
+        with st.spinner("📈 Fetching market brief..."):
             fetch_market_brief(query)
 
-# ------------------- Voice Mode -------------------
 else:
-    st.info("🎧 Click 'Start recording', speak, then 'Stop'. Transcription and response will follow.")
+    st.info("🎧 Click 'Start recording', speak, then click 'Stop' to transcribe.")
     wav_audio = st_audiorec.st_audiorec()
 
-    if wav_audio:
-        st.audio(wav_audio, format="audio/wav")
+    # After recording, audio is ready in next run
+    if wav_audio and not st.session_state.audio_ready:
+        st.session_state.audio_ready = True
+        st.experimental_rerun()
 
-        # Show transcribing spinner immediately
+    if st.session_state.audio_ready and not st.session_state.processing:
+        st.session_state.processing = True
         with st.spinner("🛠️ Transcribing your voice..."):
-            transcript = transcribe_audio(wav_audio)
+            st.session_state.transcribed_text = transcribe_audio(wav_audio)
+        st.experimental_rerun()
 
-        if transcript:
-            st.success(f"📝 You said: *{transcript}*")
-            with st.spinner("📈 Fetching market brief..."):
-                fetch_market_brief(transcript)
+    if st.session_state.transcribed_text:
+        st.success(f"📝 You said: *{st.session_state.transcribed_text}*")
+        with st.spinner("📈 Fetching market brief..."):
+            fetch_market_brief(st.session_state.transcribed_text)
+        # Reset for next round
+        st.session_state.audio_ready = False
+        st.session_state.processing = False
+        st.session_state.transcribed_text = ""
