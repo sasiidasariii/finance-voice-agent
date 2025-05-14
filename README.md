@@ -2,6 +2,8 @@
 
 A production-ready, voice-powered financial assistant that delivers spoken market briefs using multi-agent orchestration, Retrieval-Augmented Generation (RAG), and real-time data analysis.
 
+**Video Demo Link** : https://drive.google.com/file/d/1sPu0vMsnTmpZkiMrVLUnbKBz7p2qjj9c/view?usp=sharing
+
 ---
 
 ## 🚀 Features
@@ -116,13 +118,7 @@ flake8 .
 
 ---
 
-## 🔍 AI Tool Assistance Disclosure
 
-- **Code generation**: Initial agent scaffolding, RAG configs, and response formatting aided by GPT-4.
-- **Manual refinement**: All prompts, agent logic, and architecture were manually tuned and tested.
-- **Voice tuning**: TTS/STT behavior iteratively improved based on real feedback.
-
----
 
 ## 📢 Demo Query Examples
 
