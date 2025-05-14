@@ -24,3 +24,4 @@ pygame
 
 sounddevice
 openai-whisper
+streamlit-webrtc
