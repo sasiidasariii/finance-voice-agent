@@ -49,7 +49,7 @@ A production-ready, voice-powered financial assistant that delivers spoken marke
 |-------------------|-------------------------------------------------------------------------------|
 | **Web Agent**     | `Selenium`, `BeautifulSoup`, `Playwright`                                     |
 | **Retrieval Agent**| `FAISS`, `Chroma`, `LangChain`, `OpenAI Embeddings`                          |
-| **Language Agent**| `GPT-4`, `transformers`, `LangChain`, `Prompt Templates`                      |
+| **Language Agent**| `Gemini`, `transformers`, `LangChain`, `Prompt Templates`                      |
 | **Voice Agent**   | `SpeechRecognition`, `pyttsx3`, `st_audiorec`, `gTTS`                         |
 | **Frontend**      | `Streamlit`, `st_audiorec`, `Matplotlib`, `Plotly`, `Altair`                  |
 | **Backend/API**   | `FastAPI`, `Uvicorn`, `pydantic`                                               |
