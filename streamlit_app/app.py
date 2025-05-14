@@ -6,24 +6,22 @@ import speech_recognition as sr
 # Detect if running in Streamlit Cloud
 IS_CLOUD = os.getenv("STREAMLIT_CLOUD", "0") == "1"
 
+# Only import sounddevice & scipy if running locally
 if not IS_CLOUD:
     import sounddevice as sd
     from scipy.io.wavfile import write
 
-from audio_controller import audio  # Uses gTTS and returns MP3 path
+from audio_controller import audio  # Uses gTTS to return MP3 path
 
 st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
-# Session State
-if "brief" not in st.session_state:
-    st.session_state.brief = ""
-if "query" not in st.session_state:
-    st.session_state.query = ""
-if "audio_path" not in st.session_state:
-    st.session_state.audio_path = ""
+# Session State Initialization
+for key in ["brief", "query", "audio_path"]:
+    if key not in st.session_state:
+        st.session_state[key] = ""
 
-# Voice input
+# Function: Voice Input (local only)
 def get_voice_input():
     recognizer = sr.Recognizer()
     fs = 16000
@@ -52,10 +50,14 @@ def get_voice_input():
         st.error(f"❌ Transcription error: {e}")
     return None
 
-# Input method selection
-input_method = st.radio("Choose input method:", ["⌨️ Text"] + ([] if IS_CLOUD else ["🎙️ Record Voice"]))
+# Input Method Selection
+methods = ["⌨️ Text"]
+if not IS_CLOUD:
+    methods.append("🎙️ Record Voice")
 
-# Text input
+input_method = st.radio("Choose input method:", methods)
+
+# Mode: Text
 if input_method == "⌨️ Text":
     st.session_state.query = st.text_input("Enter your market question", value=st.session_state.query)
     if st.button("Get Market Brief (Text)") and st.session_state.query:
@@ -69,8 +71,8 @@ if input_method == "⌨️ Text":
             except Exception as e:
                 st.error(f"❌ Error: {e}")
 
-# Voice input (local only)
-elif input_method == "🎙️ Record Voice" and not IS_CLOUD:
+# Mode: Voice (only locally)
+elif input_method == "🎙️ Record Voice":
     if st.button("🎤 Record and Transcribe"):
         query = get_voice_input()
         if query:
@@ -86,11 +88,11 @@ elif input_method == "🎙️ Record Voice" and not IS_CLOUD:
                 except Exception as e:
                     st.error(f"❌ Error: {e}")
 
-# Cloud: Voice not supported message
+# Warn Cloud Users About Voice Limitations
 if IS_CLOUD and input_method == "🎙️ Record Voice":
-    st.warning("⚠️ Voice input is disabled on Streamlit Cloud. Please run locally for full voice support.")
+    st.warning("⚠️ Voice input is disabled on Streamlit Cloud. Please run this app locally for full voice support.")
 
-# Output
+# Output Brief and Playback
 if st.session_state.brief:
     st.subheader("📄 Market Brief")
     st.write(st.session_state.brief)
