@@ -3,11 +3,11 @@ import streamlit as st
 import requests
 import speech_recognition as sr
 
-# Debug: Log environment to check if the app is detecting Cloud
-st.write("IS_CLOUD: ", os.environ.get("STAGE"))
+# Check for Streamlit Cloud deployment
+IS_CLOUD = os.getenv("STAGE") is not None
 
-# Detect if running in Streamlit Cloud by checking for the presence of $STAGE environment variable
-IS_CLOUD = os.environ.get("STAGE") is not None
+# Move set_page_config to the top to avoid the error
+st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
 
 # Only import sounddevice & scipy if running locally
 if not IS_CLOUD:
@@ -16,7 +16,6 @@ if not IS_CLOUD:
 
 from audio_controller import audio  # Uses gTTS to return MP3 path
 
-st.set_page_config(page_title="🎙️ Morning Market Brief Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
 # Session State Initialization
