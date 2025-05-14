@@ -11,27 +11,22 @@ st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
 # Init session state
-if "audio_ready" not in st.session_state:
-    st.session_state.audio_ready = False
 if "transcribed_text" not in st.session_state:
     st.session_state.transcribed_text = ""
-if "processing" not in st.session_state:
-    st.session_state.processing = False
-if "wav_audio" not in st.session_state:
-    st.session_state.wav_audio = None
 
 # Mute option
 st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
 
-# ------------------- TTS ------------------- #
+# ------------------- TTS -------------------
 def speak(text):
     if not st.session_state.get("mute", False):
         tts = gTTS(text=text, lang='en')
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
             tts.save(tmpfile.name)
-            st.audio(tmpfile.name, format="audio/mp3")
+            with open(tmpfile.name, "rb") as f:
+                st.audio(f.read(), format="audio/mp3")
 
-# ------------------- Transcription ------------------- #
+# ------------------- Transcription -------------------
 def transcribe_audio(wav_audio_data):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
         tmpfile.write(wav_audio_data)
@@ -50,7 +45,7 @@ def transcribe_audio(wav_audio_data):
         os.remove(audio_path)
     return None
 
-# ------------------- Market Brief ------------------- #
+# ------------------- Market Brief -------------------
 def fetch_market_brief(query):
     try:
         url = f"https://8f72-2409-40f0-1f-32b2-ec80-3655-f9b3-d72b.ngrok-free.app/brief?query={query}"
@@ -65,7 +60,7 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
-# ------------------- Input Mode ------------------- #
+# ------------------- Input Mode -------------------
 input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
 if input_mode == "⌨️ Text":
@@ -75,12 +70,17 @@ if input_mode == "⌨️ Text":
             fetch_market_brief(query)
 
 else:
-    st.info("🎧 Click 'Start recording', speak, then click 'Stop' to transcribe.")
+    st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
     wav_audio = st_audiorec.st_audiorec()
 
-    if wav_audio is not None:
-        st.info("🛠️ Transcribing your voice...")
-        transcribed = transcribe_audio(wav_audio)
-        if transcribed:
-            st.success(f"📝 You said: *{transcribed}*")
-            fetch_market_brief(transcribed)
+    if wav_audio:
+        st.audio(wav_audio, format="audio/wav")
+        with st.spinner("🔍 Transcribing your voice..."):
+            transcribed = transcribe_audio(wav_audio)
+            if transcribed:
+                st.success(f"📝 You said: *{transcribed}*")
+                st.session_state.transcribed_text = transcribed
+                with st.spinner("📈 Fetching market brief..."):
+                    fetch_market_brief(transcribed)
+            else:
+                st.warning("⚠️ Could not transcribe.")
