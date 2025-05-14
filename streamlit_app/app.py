@@ -1,42 +1,54 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode
-import av
-import numpy as np
-import queue
-import threading
-import tempfile
-import wave
-import speech_recognition as sr
+import requests
 import os
+import tempfile
+import st_audiorec
+import speech_recognition as sr
 from gtts import gTTS
 
-# Page config
+# Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
-# Session state init
-if "recorded_frames" not in st.session_state:
-    st.session_state.recorded_frames = []
-if "transcribed_text" not in st.session_state:
-    st.session_state.transcribed_text = ""
-if "mute" not in st.session_state:
-    st.session_state.mute = False
+# Init session state
+st.session_state.setdefault("transcribed_text", "")
+st.session_state.setdefault("audio_ready", False)
+st.session_state.setdefault("processing", False)
 
-st.checkbox("🔇 Mute Voice Output", value=st.session_state.mute, key="mute")
+# Mute option
+st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
 
-# Text-to-Speech
+# ------------------- TTS -------------------
 def speak(text):
-    if not st.session_state.mute:
+    if not st.session_state.get("mute", False):
         tts = gTTS(text=text, lang='en')
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
             tts.save(tmpfile.name)
-            with open(tmpfile.name, "rb") as f:
-                st.audio(f.read(), format="audio/mp3")
+            st.audio(tmpfile.name, format="audio/mp3")
 
-# Fetch brief
+# ------------------- Transcription -------------------
+def transcribe_audio(wav_audio_data):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+        tmpfile.write(wav_audio_data)
+        audio_path = tmpfile.name
+
+    recognizer = sr.Recognizer()
+    try:
+        with sr.AudioFile(audio_path) as source:
+            audio = recognizer.record(source)
+        return recognizer.recognize_google(audio)
+    except sr.UnknownValueError:
+        st.warning("⚠️ Could not understand your voice.")
+    except sr.RequestError:
+        st.error("❌ Speech-to-text API error.")
+    finally:
+        os.remove(audio_path)
+    return None
+
+# ------------------- Market Brief -------------------
 def fetch_market_brief(query):
     try:
-        url = f"https://your-api-url.com/brief?query={query}"
+        url = f"https://8f72-2409-40f0-1f-32b2-ec80-3655-f9b3-d72b.ngrok-free.app/brief?query={query}"
         res = requests.get(url)
         if res.status_code == 200 and "brief" in res.json():
             brief = res.json()["brief"]
@@ -48,67 +60,40 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
-# Convert audio frames to .wav and transcribe
-def convert_and_transcribe(frames, sample_rate):
-    audio_data = np.concatenate(frames, axis=1).flatten().astype(np.int16)
+# ------------------- Input Mode -------------------
+input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
-        with wave.open(wav_file.name, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)  # 16-bit
-            wf.setframerate(sample_rate)
-            wf.writeframes(audio_data.tobytes())
+# === Text Input ===
+if input_mode == "⌨️ Text":
+    query = st.text_input("Enter your market question:")
+    if st.button("🟢 Get Market Brief") and query.strip():
+        with st.spinner("📈 Fetching market brief..."):
+            fetch_market_brief(query.strip())
 
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(wav_file.name) as source:
-            audio = recognizer.record(source)
-            try:
-                text = recognizer.recognize_google(audio)
-                st.success(f"📝 You said: *{text}*")
-                fetch_market_brief(text)
-            except sr.UnknownValueError:
-                st.warning("⚠️ Could not understand audio.")
-            except sr.RequestError:
-                st.error("❌ Google API error.")
-            finally:
-                os.remove(wav_file.name)
+# === Voice Input ===
+else:
+    st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
+    
+    # Record voice using st_audiorec
+    wav_audio = st_audiorec.st_audiorec()
 
-# WebRTC audio handler
-audio_q = queue.Queue()
+    if wav_audio and not st.session_state.processing:
+        st.session_state.processing = True
 
-def audio_callback(frame: av.AudioFrame) -> av.AudioFrame:
-    pcm = frame.to_ndarray()
-    audio_q.put(pcm)
-    return frame
+        st.info("🔄 Audio recorded. Transcribing...")
 
-# Trigger for stop button
-if "stop_triggered" not in st.session_state:
-    st.session_state.stop_triggered = False
+        # Transcribe
+        with st.spinner("📝 Transcribing your voice..."):
+            transcribed = transcribe_audio(wav_audio)
 
-# Start webrtc
-ctx = webrtc_streamer(
-    key="sendonly-audio",
-    mode=WebRtcMode.SENDONLY,
-    audio_frame_callback=audio_callback,
-    media_stream_constraints={"audio": True, "video": False},
-)
+        if transcribed:
+            st.session_state.transcribed_text = transcribed
+            st.success(f"🗣️ You said: *{transcribed}*")
 
-# Record and buffer audio frames
-if ctx.state.playing:
-    st.info("🎙️ Recording... Speak now. Click 'Stop Recording' when done.")
-    if st.button("⏹️ Stop Recording"):
-        st.session_state.stop_triggered = True
+            # Fetch brief
+            with st.spinner("📈 Fetching market brief..."):
+                fetch_market_brief(transcribed)
+        else:
+            st.warning("⚠️ No transcription available.")
 
-    if not st.session_state.stop_triggered:
-        while not audio_q.empty():
-            pcm = audio_q.get()
-            st.session_state.recorded_frames.append(pcm)
-
-# On stop: process audio
-if st.session_state.stop_triggered and st.session_state.recorded_frames:
-    with st.spinner("🔍 Transcribing your voice..."):
-        convert_and_transcribe(st.session_state.recorded_frames, sample_rate=48000)
-
-    # Reset
-    st.session_state.recorded_frames = []
-    st.session_state.stop_triggered = False
+        st.session_state.processing = False
