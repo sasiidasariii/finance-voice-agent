@@ -71,7 +71,7 @@ def get_browser_audio_input():
 def fetch_market_brief(query):
     """Fetch market brief from backend."""
     try:
-        url = f"https://finance-voice-agent.onrender.com/brief?query={query}"
+        url = f"https://8f72-2409-40f0-1f-32b2-ec80-3655-f9b3-d72b.ngrok-free.app/brief?query={query}"
         response = requests.get(url)
 
         if response.status_code == 200:

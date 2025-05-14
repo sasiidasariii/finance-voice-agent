@@ -54,7 +54,7 @@ if input_method == "⌨️ Text":
     if st.button("Get Market Brief (Text)") and st.session_state.query:
         with st.spinner("🔄 Fetching brief..."):
             try:
-                response = requests.get(f"http://localhost:8000/brief?query={st.session_state.query}")
+                response = requests.get(f"https://8f72-2409-40f0-1f-32b2-ec80-3655-f9b3-d72b.ngrok-free.app/brief?query={st.session_state.query}")
                 response.raise_for_status()
                 data = response.json()
                 st.session_state.brief = data.get("brief", "")
