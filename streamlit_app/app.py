@@ -3,15 +3,30 @@ import requests
 import os
 import tempfile
 import st_audiorec
-import speech_recognition as sr
+import whisper
 from gtts import gTTS
 
 # Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
+# Init session state
+if "audio_ready" not in st.session_state:
+    st.session_state.audio_ready = False
+if "transcribed_text" not in st.session_state:
+    st.session_state.transcribed_text = ""
+if "processing" not in st.session_state:
+    st.session_state.processing = False
+
 # Mute option
 st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
+
+# Load Whisper model once
+@st.cache_resource
+def load_whisper_model():
+    return whisper.load_model("base")
+
+model = load_whisper_model()
 
 # ------------------- TTS -------------------
 def speak(text):
@@ -22,21 +37,17 @@ def speak(text):
             with open(tmpfile.name, "rb") as f:
                 st.audio(f.read(), format="audio/mp3")
 
-# ------------------- Transcription -------------------
-def transcribe_audio(wav_audio_data):
+# ------------------- Transcription using Whisper -------------------
+def transcribe_audio_fast(wav_audio_data):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
         tmpfile.write(wav_audio_data)
         audio_path = tmpfile.name
 
-    recognizer = sr.Recognizer()
     try:
-        with sr.AudioFile(audio_path) as source:
-            audio = recognizer.record(source)
-        return recognizer.recognize_google(audio)
-    except sr.UnknownValueError:
-        st.warning("⚠️ Could not understand your voice.")
-    except sr.RequestError:
-        st.error("❌ Speech-to-text API error.")
+        result = model.transcribe(audio_path)
+        return result["text"]
+    except Exception as e:
+        st.error(f"❌ Transcription error: {e}")
     finally:
         os.remove(audio_path)
     return None
@@ -69,10 +80,22 @@ else:
     st.info("🎧 Click 'Start recording', speak, then click 'Stop' to transcribe.")
     wav_audio = st_audiorec.st_audiorec()
 
-    if wav_audio:
+    # After recording, audio is ready in next run
+    if wav_audio and not st.session_state.audio_ready:
+        st.session_state.audio_ready = True
+        st.experimental_rerun()
+
+    if st.session_state.audio_ready and not st.session_state.processing:
+        st.session_state.processing = True
         with st.spinner("🛠️ Transcribing your voice..."):
-            transcribed = transcribe_audio(wav_audio)
-            if transcribed:
-                st.success(f"📝 You said: *{transcribed}*")
-                with st.spinner("📈 Fetching market brief..."):
-                    fetch_market_brief(transcribed)
+            st.session_state.transcribed_text = transcribe_audio_fast(wav_audio)
+        st.experimental_rerun()
+
+    if st.session_state.transcribed_text:
+        st.success(f"📝 You said: *{st.session_state.transcribed_text}*")
+        with st.spinner("📈 Fetching market brief..."):
+            fetch_market_brief(st.session_state.transcribed_text)
+        # Reset for next round
+        st.session_state.audio_ready = False
+        st.session_state.processing = False
+        st.session_state.transcribed_text = ""
