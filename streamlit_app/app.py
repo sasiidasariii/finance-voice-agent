@@ -72,7 +72,7 @@ if input_method == "⌨️ Text":
                 st.error(f"❌ Error: {e}")
 
 # Mode: Voice (only locally)
-elif input_method == "🎙️ Record Voice":
+elif input_method == "🎙️ Record Voice" and not IS_CLOUD:
     if st.button("🎤 Record and Transcribe"):
         query = get_voice_input()
         if query:
