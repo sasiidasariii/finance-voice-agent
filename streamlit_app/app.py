@@ -72,7 +72,7 @@ if input_mode == "⌨️ Text":
 else:
     st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
     wav_audio = st_audiorec.st_audiorec()
-
+    st.spinner("🔍 Transcribing your voice...")
     if wav_audio:
         st.audio(wav_audio, format="audio/wav")
         with st.spinner("🔍 Transcribing your voice..."):
