@@ -1,18 +1,15 @@
 import streamlit as st
 import requests
-import pyttsx3
 import os
 import tempfile
 import st_audiorec
 import speech_recognition as sr
+from gtts import gTTS
 
-import os
 # Set a custom directory for Streamlit config files
 os.environ["STREAMLIT_CONFIG_DIR"] = "/tmp/.streamlit"
 
-
 # ------------------- Page Config -------------------
-
 st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
@@ -21,11 +18,15 @@ mute_speech = st.checkbox("🔇 Mute Voice Output", value=False)
 # ------------------- TTS -------------------
 
 def speak(text):
-    """Convert text to speech."""
+    """Convert text to speech using Google TTS."""
     if not mute_speech:
-        engine = pyttsx3.init()
-        engine.say(text)
-        engine.runAndWait()
+        tts = gTTS(text=text, lang='en')
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
+            tmpfile_path = tmpfile.name
+            tts.save(tmpfile_path)
+            os.system(f"start {tmpfile_path}")  # For Windows
+            # For Linux/macOS:
+            # os.system(f"mpg321 {tmpfile_path}")  # Or use any other MP3 player command
 
 # ------------------- Audio Transcription -------------------
 
