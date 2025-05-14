@@ -13,6 +13,10 @@ st.title("🎙️ Morning Market Brief Assistant")
 # Init session state
 if "transcribed_text" not in st.session_state:
     st.session_state.transcribed_text = ""
+if "audio_ready" not in st.session_state:
+    st.session_state.audio_ready = False
+if "processing" not in st.session_state:
+    st.session_state.processing = False
 
 # Mute option
 st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
@@ -73,17 +77,23 @@ else:
     st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
     wav_audio = st_audiorec.st_audiorec()
 
-    # After recording finishes, automatically transcribe and process
-    if wav_audio:
-        st.audio(wav_audio, format="audio/wav")
+    # Immediately process the audio after recording stops
+    if wav_audio and not st.session_state.audio_ready:
+        st.session_state.audio_ready = True
+        st.session_state.processing = True
+        st.info("🔄 Audio recorded. Processing...")
+
         with st.spinner("🔍 Transcribing your voice..."):
             transcribed = transcribe_audio(wav_audio)
             
             if transcribed:
-                st.success(f"📝 You said: *{transcribed}*")
                 st.session_state.transcribed_text = transcribed
-                
+                st.success(f"📝 You said: *{transcribed}*")
                 with st.spinner("📈 Fetching market brief..."):
                     fetch_market_brief(transcribed)
             else:
                 st.warning("⚠️ Could not transcribe.")
+        
+        # Reset session state after processing
+        st.session_state.audio_ready = False
+        st.session_state.processing = False
