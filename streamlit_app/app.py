@@ -5,6 +5,7 @@ import tempfile
 import st_audiorec
 import speech_recognition as sr
 from gtts import gTTS
+import threading  # Adding threading to process in the background
 
 # Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
@@ -75,28 +76,30 @@ if input_mode == "⌨️ Text":
 
 else:
     st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
-    
-    # Capture audio when 'Stop' is pressed
+
+    # Capture audio using st_audiorec
     wav_audio = st_audiorec.st_audiorec()
 
-    if wav_audio:
-        if not st.session_state.processing:
-            st.session_state.processing = True
-            
-            # Immediately show "Processing..." message when stop is clicked
-            st.info("🔄 Audio recorded. Processing...")
+    # Trigger "Processing" message as soon as Stop is clicked
+    if wav_audio and not st.session_state.processing:
+        st.session_state.processing = True
+        st.info("🔄 Audio recorded. Processing...")  # This will be displayed immediately!
 
-            # Start transcription in background (does not block the UI)
-            with st.spinner("🔍 Transcribing your voice..."):
-                transcribed = transcribe_audio(wav_audio)
-                
-                if transcribed:
-                    st.session_state.transcribed_text = transcribed
-                    st.success(f"📝 You said: *{transcribed}*")
-                    with st.spinner("📈 Fetching market brief..."):
-                        fetch_market_brief(transcribed)
-                else:
-                    st.warning("⚠️ Could not transcribe.")
+        # Run transcription and fetching in a background thread to avoid UI freeze
+        def process_audio():
+            transcribed = transcribe_audio(wav_audio)
             
-            # Reset session state after processing
+            if transcribed:
+                st.session_state.transcribed_text = transcribed
+                st.success(f"📝 You said: *{transcribed}*")
+                with st.spinner("📈 Fetching market brief..."):
+                    fetch_market_brief(transcribed)
+            else:
+                st.warning("⚠️ Could not transcribe.")
+            
+            # Reset processing flag after processing
             st.session_state.processing = False
+        
+        # Start background thread
+        threading.Thread(target=process_audio).start()
+
