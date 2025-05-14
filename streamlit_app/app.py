@@ -15,21 +15,19 @@ st.title("🎙️ Morning Market Brief Assistant")
 
 mute_speech = st.checkbox("🔇 Mute Voice Output", value=False)
 
-# ------------------- TTS -------------------
-
+# ------------------- TTS (gTTS-based) -------------------
 def speak(text):
-    """Convert text to speech using Google TTS."""
+    """Convert text to speech using gTTS and play in browser."""
     if not mute_speech:
         tts = gTTS(text=text, lang='en')
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
             tmpfile_path = tmpfile.name
             tts.save(tmpfile_path)
-            os.system(f"start {tmpfile_path}")  # For Windows
-            # For Linux/macOS:
-            # os.system(f"mpg321 {tmpfile_path}")  # Or use any other MP3 player command
+
+        with open(tmpfile_path, "rb") as audio_file:
+            st.audio(audio_file.read(), format="audio/mp3")
 
 # ------------------- Audio Transcription -------------------
-
 def transcribe_audio(wav_audio_data):
     """Save recorded audio and transcribe it using SpeechRecognition."""
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
@@ -54,7 +52,6 @@ def transcribe_audio(wav_audio_data):
     return None
 
 # ------------------- Audio Input -------------------
-
 def get_browser_audio_input():
     """Capture and transcribe audio via browser."""
     st.markdown("#### 🎤 Press the button to talk:")
@@ -68,7 +65,6 @@ def get_browser_audio_input():
     return None
 
 # ------------------- Market Brief Request -------------------
-
 def fetch_market_brief(query):
     """Fetch market brief from backend."""
     try:
@@ -96,7 +92,6 @@ def fetch_market_brief(query):
         st.error(f"❌ Request error: {e}")
 
 # ------------------- UI: Input Method -------------------
-
 input_method = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
 # ----- Text Mode -----
