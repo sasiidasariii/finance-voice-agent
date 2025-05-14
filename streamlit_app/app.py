@@ -79,21 +79,24 @@ else:
     # Capture audio when 'Stop' is pressed
     wav_audio = st_audiorec.st_audiorec()
 
-    if wav_audio and not st.session_state.processing:
-        st.session_state.processing = True
-        st.info("🔄 Audio recorded. Processing...")
-
-        # Transcribe the audio and process
-        with st.spinner("🔍 Transcribing your voice..."):
-            transcribed = transcribe_audio(wav_audio)
+    if wav_audio:
+        if not st.session_state.processing:
+            st.session_state.processing = True
             
-            if transcribed:
-                st.session_state.transcribed_text = transcribed
-                st.success(f"📝 You said: *{transcribed}*")
-                with st.spinner("📈 Fetching market brief..."):
-                    fetch_market_brief(transcribed)
-            else:
-                st.warning("⚠️ Could not transcribe.")
-        
-        # Reset session state after processing
-        st.session_state.processing = False
+            # Immediately show "Processing..." message when stop is clicked
+            st.info("🔄 Audio recorded. Processing...")
+
+            # Start transcription in background (does not block the UI)
+            with st.spinner("🔍 Transcribing your voice..."):
+                transcribed = transcribe_audio(wav_audio)
+                
+                if transcribed:
+                    st.session_state.transcribed_text = transcribed
+                    st.success(f"📝 You said: *{transcribed}*")
+                    with st.spinner("📈 Fetching market brief..."):
+                        fetch_market_brief(transcribed)
+                else:
+                    st.warning("⚠️ Could not transcribe.")
+            
+            # Reset session state after processing
+            st.session_state.processing = False
