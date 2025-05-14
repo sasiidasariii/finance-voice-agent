@@ -63,6 +63,18 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
+# ------------------- Process Audio in Background -------------------
+def process_audio(wav_audio):
+    # Transcribe the audio in a background thread
+    transcribed_text = transcribe_audio(wav_audio)
+    if transcribed_text:
+        st.session_state.transcribed_text = transcribed_text
+        st.success(f"📝 You said: *{transcribed_text}*")
+        with st.spinner("📈 Fetching market brief..."):
+            fetch_market_brief(transcribed_text)
+    else:
+        st.warning("⚠️ Could not transcribe.")
+
 # ------------------- Input Mode -------------------
 input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
@@ -84,14 +96,3 @@ else:
 
     if st.session_state.audio_ready:
         st.info("🎧 Transcribing your speech... please wait.")
-
-# Process audio after stop
-def process_audio(wav_audio):
-    transcribed_text = transcribe_audio(wav_audio)
-    if transcribed_text:
-        st.session_state.transcribed_text = transcribed_text
-        st.success(f"📝 You said: *{transcribed_text}*")
-        fetch_market_brief(transcribed_text)
-    else:
-        st.warning("⚠️ Could not transcribe.")
-
