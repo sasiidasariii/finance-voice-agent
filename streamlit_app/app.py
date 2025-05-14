@@ -6,7 +6,7 @@ import st_audiorec
 import speech_recognition as sr
 from gtts import gTTS
 
-# Page config
+# ------------------- Page Config -------------------
 st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
@@ -71,8 +71,11 @@ else:
 
     if wav_audio:
         st.audio(wav_audio, format="audio/wav")
-        with st.spinner("🔠 Transcribing your voice..."):
+
+        # Show transcribing spinner immediately
+        with st.spinner("🛠️ Transcribing your voice..."):
             transcript = transcribe_audio(wav_audio)
+
         if transcript:
             st.success(f"📝 You said: *{transcript}*")
             with st.spinner("📈 Fetching market brief..."):
