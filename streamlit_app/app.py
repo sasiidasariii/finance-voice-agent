@@ -72,14 +72,17 @@ if input_mode == "⌨️ Text":
 else:
     st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
     wav_audio = st_audiorec.st_audiorec()
-    st.spinner("🔍 Transcribing your voice...")
+
+    # After recording finishes, automatically transcribe and process
     if wav_audio:
         st.audio(wav_audio, format="audio/wav")
         with st.spinner("🔍 Transcribing your voice..."):
             transcribed = transcribe_audio(wav_audio)
+            
             if transcribed:
                 st.success(f"📝 You said: *{transcribed}*")
                 st.session_state.transcribed_text = transcribed
+                
                 with st.spinner("📈 Fetching market brief..."):
                     fetch_market_brief(transcribed)
             else:
