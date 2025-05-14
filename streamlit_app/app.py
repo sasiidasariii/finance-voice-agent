@@ -1,25 +1,26 @@
 import streamlit as st
-import requests
-import os
-import tempfile
-import st_audiorec
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
+import av
 import speech_recognition as sr
+import queue
+import threading
+import requests
 from gtts import gTTS
+import tempfile
+import os
 
-# Page Config
 st.set_page_config(page_title="🎙️ Finance Assistant")
 st.title("🎙️ Morning Market Brief Assistant")
 
-# Init session state
+# Session state
 if "transcribed_text" not in st.session_state:
     st.session_state.transcribed_text = ""
-if "audio_ready" not in st.session_state:
-    st.session_state.audio_ready = False
-if "processing" not in st.session_state:
-    st.session_state.processing = False
 
-# Mute option
-st.checkbox("🔇 Mute Voice Output", value=False, key="mute")
+if "mute" not in st.session_state:
+    st.session_state.mute = False
+
+# Mute checkbox
+st.checkbox("🔇 Mute Voice Output", value=st.session_state.mute, key="mute")
 
 # ------------------- TTS -------------------
 def speak(text):
@@ -29,25 +30,6 @@ def speak(text):
             tts.save(tmpfile.name)
             with open(tmpfile.name, "rb") as f:
                 st.audio(f.read(), format="audio/mp3")
-
-# ------------------- Transcription -------------------
-def transcribe_audio(wav_audio_data):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-        tmpfile.write(wav_audio_data)
-        audio_path = tmpfile.name
-
-    recognizer = sr.Recognizer()
-    try:
-        with sr.AudioFile(audio_path) as source:
-            audio = recognizer.record(source)
-        return recognizer.recognize_google(audio)
-    except sr.UnknownValueError:
-        st.warning("⚠️ Could not understand your voice.")
-    except sr.RequestError:
-        st.error("❌ Speech-to-text API error.")
-    finally:
-        os.remove(audio_path)
-    return None
 
 # ------------------- Market Brief -------------------
 def fetch_market_brief(query):
@@ -64,7 +46,40 @@ def fetch_market_brief(query):
     except Exception as e:
         st.error(f"❌ API error: {e}")
 
-# ------------------- Input Mode -------------------
+# ------------------- Audio Queue -------------------
+audio_queue = queue.Queue()
+
+# ------------------- Audio Processing -------------------
+def process_audio_stream():
+    recognizer = sr.Recognizer()
+
+    while True:
+        audio_frame = audio_queue.get()
+        if audio_frame is None:
+            break
+        audio_data = audio_frame.to_ndarray().tobytes()
+        try:
+            audio_segment = sr.AudioData(audio_data, audio_frame.sample_rate, 2)
+            text = recognizer.recognize_google(audio_segment)
+            if text:
+                st.session_state.transcribed_text += " " + text
+                st.success(f"📝 You said: *{st.session_state.transcribed_text.strip()}*")
+                fetch_market_brief(st.session_state.transcribed_text.strip())
+                st.session_state.transcribed_text = ""  # Reset after response
+        except sr.UnknownValueError:
+            pass
+        except sr.RequestError as e:
+            st.error(f"Speech recognition API error: {e}")
+
+# Background transcription thread
+threading.Thread(target=process_audio_stream, daemon=True).start()
+
+# ------------------- Audio Callback -------------------
+def audio_frame_callback(frame: av.AudioFrame) -> av.AudioFrame:
+    audio_queue.put(frame)
+    return frame
+
+# ------------------- UI -------------------
 input_mode = st.radio("Choose input method:", ["⌨️ Text", "🎙️ Voice"])
 
 if input_mode == "⌨️ Text":
@@ -72,31 +87,16 @@ if input_mode == "⌨️ Text":
     if st.button("🟢 Get Market Brief") and query:
         with st.spinner("📈 Fetching market brief..."):
             fetch_market_brief(query)
-
 else:
-    st.info("🎧 Click 'Start recording', speak, then click 'Stop'.")
-    
-    # Capture audio when 'Stop' is pressed
-    wav_audio = st_audiorec.st_audiorec()
-
-    if wav_audio:
-        if not st.session_state.processing:
-            st.session_state.processing = True
-            
-            # Immediately show "Processing..." message when stop is clicked
-            st.info("🔄 Audio recorded. Processing...")
-
-            # Start transcription in background (does not block the UI)
-            with st.spinner("🔍 Transcribing your voice..."):
-                transcribed = transcribe_audio(wav_audio)
-                
-                if transcribed:
-                    st.session_state.transcribed_text = transcribed
-                    st.success(f"📝 You said: *{transcribed}*")
-                    with st.spinner("📈 Fetching market brief..."):
-                        fetch_market_brief(transcribed)
-                else:
-                    st.warning("⚠️ Could not transcribe.")
-            
-            # Reset session state after processing
-            st.session_state.processing = False
+    st.info("🎧 Speak into your mic. Transcription and analysis will happen in real-time.")
+    webrtc_streamer(
+        key="speech",
+        mode=WebRtcMode.SENDONLY,
+        in_audio=True,
+        audio_frame_callback=audio_frame_callback,
+        media_stream_constraints={"video": False, "audio": True},
+        client_settings=ClientSettings(
+            media_stream_constraints={"video": False, "audio": True},
+            rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+        )
+    )
