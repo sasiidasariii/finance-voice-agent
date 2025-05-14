@@ -118,13 +118,7 @@ flake8 .
 
 ---
 
-## 🔍 AI Tool Assistance Disclosure
 
-- **Code generation**: Initial agent scaffolding, RAG configs, and response formatting aided by GPT-4.
-- **Manual refinement**: All prompts, agent logic, and architecture were manually tuned and tested.
-- **Voice tuning**: TTS/STT behavior iteratively improved based on real feedback.
-
----
 
 ## 📢 Demo Query Examples
 
